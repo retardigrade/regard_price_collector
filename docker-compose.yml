@@ -1,0 +1,52 @@
+version: "3.8"
+
+services:
+    db:
+        image: postgres:13.2-alpine
+        container_name: db
+        restart: always
+        volumes:
+            - ./db/init_schema.sql:/docker-entrypoint-initdb.d/init_schema.sql
+        environment:
+            POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}
+            TZ: ${TZ}
+            PGTZ: ${TZ}
+        ports:
+            - 5432:5432
+        networks:
+            - pipe_net
+    
+    scheduler:
+        build: ./scheduler/
+        container_name: scheduler
+        restart: always
+        ports:
+            - 8082:8082
+        networks:
+            - pipe_net
+        depends_on:
+            - "db"
+    
+    tasker:
+        build: ./task_runner/
+        container_name: task_runner
+        restart: always
+        environment:
+            POSTGRES_HOST: ${POSTGRES_HOST}
+            DATABASE_NAME: ${DATABASE_NAME}
+            POSTGRES_USER: ${POSTGRES_USER}
+            POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}
+        networks:
+            - pipe_net
+        depends_on:
+            - "scheduler"
+            
+            
+networks:
+  pipe_net:
+    driver: bridge
+    ipam:
+      driver: default
+      config:
+        - subnet: "172.20.0.0/16"
+          gateway: "172.20.0.1"
